@@ -194,6 +194,34 @@ python downloader.py -d "25-12-22" -b 662 -o "my_radio_folder" --low-bitrate --n
 - `python gui.py`
 - `python downloader.py --help`
 
+### GitHub Actions 自动打包（Windows/macOS/Linux）
+
+仓库已提供工作流文件：`.github/workflows/build-multi-platform.yml`
+
+触发方式：
+
+1. 手动触发：
+  - 打开 GitHub 仓库的 Actions 页面。
+  - 选择 `Build Multi-Platform Releases`。
+  - 点击 `Run workflow`。
+  - 构建完成后可在该次运行的 Artifacts 中下载三平台产物。
+
+2. 发布触发（推荐）：
+  - 推送符合 `v*` 规则的 tag（如 `v1.0.1`）。
+  - 工作流会自动构建三平台二进制，并自动创建 GitHub Release，上传附件。
+
+示例命令：
+
+```bash
+git tag v1.0.1
+git push origin v1.0.1
+```
+
+注意：
+
+- 若仓库未允许工作流写入 Release，请到仓库 Settings -> Actions -> General，将 Workflow permissions 设为 `Read and write permissions`。
+- 当前仅 Windows 使用 `vtfts-knkbe-001.ico` 图标；macOS 如需图标请准备 `.icns` 并在工作流里单独加参数。
+
 ## 注意事项
 
 云听本身似乎没有限速策略，也似乎不会封禁ip，但保险起见，使用时仍需注意流量。
