@@ -203,12 +203,22 @@ python downloader.py -d "25-12-22" -b 662 -o "my_radio_folder" --low-bitrate --n
 1. 手动触发：
   - 打开 GitHub 仓库的 Actions 页面。
   - 选择 `Build Multi-Platform Releases`。
-  - 点击 `Run workflow`。
-  - 构建完成后可在该次运行的 Artifacts 中下载三平台产物。
+  - 点击 `Run workflow`，输入版本号（如 `1.0.0`）。
+  - 工作流会自动构建三平台二进制，并创建/更新对应版本的 GitHub Release。
 
 2. 发布触发（推荐）：
   - 推送符合 `v*` 规则的 tag（如 `v1.0.1`）。
   - 工作流会自动构建三平台二进制，并自动创建 GitHub Release，上传附件。
+  - 每个平台会同时生成 GUI 版与 CLI 版（`downloader.py`）。
+
+发布附件命名规则：
+
+- `YunTing-archive-downloader_windows_V1.0.0.exe`
+- `YunTing-archive-downloader_linux_V1.0.0.tar.gz`
+- `YunTing-archive-downloader_macos_V1.0.0.tar.gz`
+- `YunTing-archive-downloader_windows_V1.0.0_CLI.exe`
+- `YunTing-archive-downloader_linux_V1.0.0_CLI.tar.gz`
+- `YunTing-archive-downloader_macos_V1.0.0_CLI.tar.gz`
 
 示例命令：
 

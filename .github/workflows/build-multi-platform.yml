@@ -62,9 +62,19 @@ jobs:
         run: |
           python -m PyInstaller -F -w -i "${{ github.workspace }}/vtfts-knkbe-001.ico" --noconfirm --clean \
             --distpath "dist/${{ matrix.target }}" \
-            --workpath "build/${{ matrix.target }}" \
-            --specpath "build/spec/${{ matrix.target }}" \
+            --workpath "build/${{ matrix.target }}/gui" \
+            --specpath "build/spec/${{ matrix.target }}/gui" \
             "gui.py"
+
+      - name: Build Windows CLI Binary
+        if: runner.os == 'Windows'
+        shell: bash
+        run: |
+          python -m PyInstaller -F --noconfirm --clean \
+            --distpath "dist/${{ matrix.target }}" \
+            --workpath "build/${{ matrix.target }}/cli" \
+            --specpath "build/spec/${{ matrix.target }}/cli" \
+            "downloader.py"
 
       - name: Build Non-Windows Binary
         if: runner.os != 'Windows'
@@ -72,9 +82,19 @@ jobs:
         run: |
           python -m PyInstaller -F -w --noconfirm --clean \
             --distpath "dist/${{ matrix.target }}" \
-            --workpath "build/${{ matrix.target }}" \
-            --specpath "build/spec/${{ matrix.target }}" \
+            --workpath "build/${{ matrix.target }}/gui" \
+            --specpath "build/spec/${{ matrix.target }}/gui" \
             "gui.py"
+
+      - name: Build Non-Windows CLI Binary
+        if: runner.os != 'Windows'
+        shell: bash
+        run: |
+          python -m PyInstaller -F --noconfirm --clean \
+            --distpath "dist/${{ matrix.target }}" \
+            --workpath "build/${{ matrix.target }}/cli" \
+            --specpath "build/spec/${{ matrix.target }}/cli" \
+            "downloader.py"
 
       - name: Upload Build Artifact
         uses: actions/upload-artifact@v4
@@ -120,12 +140,24 @@ jobs:
             cp artifacts/yunting-windows/gui.exe "release_files/YunTing-archive-downloader_windows_V${VERSION}.exe"
           fi
 
+          if [ -f artifacts/yunting-windows/downloader.exe ]; then
+            cp artifacts/yunting-windows/downloader.exe "release_files/YunTing-archive-downloader_windows_V${VERSION}_CLI.exe"
+          fi
+
           if [ -f artifacts/yunting-linux/gui ]; then
             tar -C artifacts/yunting-linux -czf "release_files/YunTing-archive-downloader_linux_V${VERSION}.tar.gz" gui
           fi
 
+          if [ -f artifacts/yunting-linux/downloader ]; then
+            tar -C artifacts/yunting-linux -czf "release_files/YunTing-archive-downloader_linux_V${VERSION}_CLI.tar.gz" downloader
+          fi
+
           if [ -f artifacts/yunting-macos/gui ]; then
             tar -C artifacts/yunting-macos -czf "release_files/YunTing-archive-downloader_macos_V${VERSION}.tar.gz" gui
+          fi
+
+          if [ -f artifacts/yunting-macos/downloader ]; then
+            tar -C artifacts/yunting-macos -czf "release_files/YunTing-archive-downloader_macos_V${VERSION}_CLI.tar.gz" downloader
           fi
 
           ls -lh release_files
