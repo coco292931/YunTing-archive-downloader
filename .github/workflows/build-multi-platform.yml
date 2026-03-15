@@ -51,20 +51,19 @@ jobs:
           fi
           pip install pyinstaller requests
 
+      - name: Check files at root
+        run: |
+          pwd
+          ls -al
+
       - name: Build Windows Binary (with icon)
         if: runner.os == 'Windows'
-        shell: pwsh
+        shell: bash
         run: |
-          $iconPath = Join-Path $env:GITHUB_WORKSPACE "vtfts-knkbe-001.ico"
-          if (-not (Test-Path $iconPath)) {
-            Write-Error "Icon not found: $iconPath"
-            exit 1
-          }
-
-          python -m PyInstaller -F -w -i "$iconPath" --noconfirm --clean `
-            --distpath "dist/${{ matrix.target }}" `
-            --workpath "build/${{ matrix.target }}" `
-            --specpath "build/spec/${{ matrix.target }}" `
+          python -m PyInstaller -F -w -i "${{ github.workspace }}/vtfts-knkbe-001.ico" --noconfirm --clean \
+            --distpath "dist/${{ matrix.target }}" \
+            --workpath "build/${{ matrix.target }}" \
+            --specpath "build/spec/${{ matrix.target }}" \
             "gui.py"
 
       - name: Build Non-Windows Binary
