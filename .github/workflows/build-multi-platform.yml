@@ -51,11 +51,6 @@ jobs:
           fi
           pip install pyinstaller requests
 
-      - name: Check files at root
-        run: |
-          pwd
-          ls -al
-
       - name: Build Windows Binary (with icon)
         if: runner.os == 'Windows'
         shell: bash
