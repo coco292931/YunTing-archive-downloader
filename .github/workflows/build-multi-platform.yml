@@ -55,7 +55,13 @@ jobs:
         if: runner.os == 'Windows'
         shell: bash
         run: |
-          python -m PyInstaller -F -w -i "vtfts-knkbe-001.ico" \
+          ICON_PATH="${GITHUB_WORKSPACE}/vtfts-knkbe-001.ico"
+          if [ ! -f "$ICON_PATH" ]; then
+            echo "Icon not found: $ICON_PATH"
+            exit 1
+          fi
+
+          python -m PyInstaller -F -w -i "$ICON_PATH" \
             --distpath "dist/${{ matrix.target }}" \
             --workpath "build/${{ matrix.target }}" \
             --specpath "build/spec/${{ matrix.target }}" \
