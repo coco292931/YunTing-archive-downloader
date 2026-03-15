@@ -53,25 +53,25 @@ jobs:
 
       - name: Build Windows Binary (with icon)
         if: runner.os == 'Windows'
-        shell: bash
+        shell: pwsh
         run: |
-          ICON_PATH="${GITHUB_WORKSPACE}/vtfts-knkbe-001.ico"
-          if [ ! -f "$ICON_PATH" ]; then
-            echo "Icon not found: $ICON_PATH"
+          $iconPath = Join-Path $env:GITHUB_WORKSPACE "vtfts-knkbe-001.ico"
+          if (-not (Test-Path $iconPath)) {
+            Write-Error "Icon not found: $iconPath"
             exit 1
-          fi
+          }
 
-          python -m PyInstaller -F -w -i "$ICON_PATH" \
-            --distpath "dist/${{ matrix.target }}" \
-            --workpath "build/${{ matrix.target }}" \
-            --specpath "build/spec/${{ matrix.target }}" \
+          python -m PyInstaller -F -w -i "$iconPath" --noconfirm --clean `
+            --distpath "dist/${{ matrix.target }}" `
+            --workpath "build/${{ matrix.target }}" `
+            --specpath "build/spec/${{ matrix.target }}" `
             "gui.py"
 
       - name: Build Non-Windows Binary
         if: runner.os != 'Windows'
         shell: bash
         run: |
-          python -m PyInstaller -F -w \
+          python -m PyInstaller -F -w --noconfirm --clean \
             --distpath "dist/${{ matrix.target }}" \
             --workpath "build/${{ matrix.target }}" \
             --specpath "build/spec/${{ matrix.target }}" \
