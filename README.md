@@ -91,6 +91,9 @@ python downloader.py -d "22-07-01 to 25-12-22" -b 662 --delay 3
 
 # 下载低码率音频，且不下载封面图片，同时指定输出目录为 my_radio_folder
 python downloader.py -d "25-12-22" -b 662 -o "my_radio_folder" --low-bitrate --no-images
+
+# 仅下载节目名匹配正则的节目，并用模板自定义输出路径/文件名
+python downloader.py -d "25-12-22" -b 662 --name-regex "Music|Morning" --filename-template "{date}\\{id}_{name_en}"
 ```
 
 **所有支持的命令行参数：**
@@ -103,13 +106,22 @@ python downloader.py -d "25-12-22" -b 662 -o "my_radio_folder" --low-bitrate --n
 - `--no-images` : 阻止下载节目封面图片。
 - `--api-key API_KEY` : 用于API鉴权的固定密钥参数（非必要一般无需更改）。
 - `--delay DELAY` : 当执行多日持续下载时，请求日期间隔的睡眠时间(秒)，默认 `1.5`。
+- `--name-regex NAME_REGEX` : 节目名正则筛选，仅下载匹配的节目（默认空，即不过滤）。
+- `--filename-template FILENAME_TEMPLATE` : 自定义输出模板（默认 `{date}\\{name}`，支持 `{id}` `{name}` `{date}` `{name_ch}` `{name_en}` `{bitrate}` `{start_time}` `{end_time}`；其中 `{bitrate}` 输出 `High/Low`）。
+
+说明：Windows 文件系统不允许 `:` `*` `?` 等字符，模板渲染后若包含这些字符，程序会自动转换为对应全角字符以保证可落盘。
+
+高级配置（仅 `config.json`，不在 UI 暴露）：
+
+- `max_rate_kbps`：下载限速（单位 KB/s）。`0` 表示不限速。
 
 ### 2. GUI 界面操作 (推荐)
 
 直接运行 `python gui.py` 唤出界面。
 **核心特性：**
 
-- **可视化参数调整**：在界面输入日期范围（支持单日或多日）、电台 ID，或是更改保存目录、控制防封禁请求延迟等。相关的配置会自动保存到同目录下的 `config.json` 内作为默认预设。
+- **可视化参数调整**：在界面输入日期范围（支持单日或多日）、电台 ID，或是更改保存目录、控制防封禁请求延迟，并支持节目名正则筛选和文件名模板（含自定义子目录）。相关的配置会自动保存到同目录下的 `config.json` 内作为默认预设。
+- **模板预览区**：下载页新增“文件名模板预览”，固定以 `Morning Call 音乐叫早` 作为示例，实时展示模板渲染后的完整输出路径。
 - **自定义下载项**：可以选择获取默认的高码率音频或是节省空间的低码率；可以选择是否连带下载音频的封面图资源。
 - **防止重复与元数据映射**：图片只下载一次（以 `downloaded_images.txt` 缓存），并且按对应节目的名字被重命名，源链接信息保存在 `images_info.txt` 中。下载目录会以日期按规则分类，并在文件夹内生成当天的抓取记录报告 `YYYY-MM-DD_program_info.txt`，包含实际下载的高/低音质标识。
 - **二段安全中断保护 (防烂尾机制)**：

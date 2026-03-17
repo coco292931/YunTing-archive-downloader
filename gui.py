@@ -11,7 +11,13 @@ import queue
 import ctypes
 from ctypes import wintypes
 from datetime import datetime, timedelta
-from downloader import download_by_date
+from downloader import (
+    download_by_date,
+    _split_program_name,
+    _sanitize_component_for_path,
+    _render_filename_template,
+    _build_output_file_path,
+)
 from converter import check_ffmpeg_path, build_ffmpeg_cmd
 
 CONFIG_FILE = "config.json"
@@ -105,6 +111,10 @@ class YunTingDownloaderGUI:
         self.api_key_var = tk.StringVar(value="f0fc4c668392f9f9a447e48584c214ee")
         self.high_bitrate_var = tk.BooleanVar(value=True)
         self.download_images_var = tk.BooleanVar(value=True)
+        self.name_filter_regex_var = tk.StringVar(value="")
+        self.filename_template_var = tk.StringVar(value=r"{date}\{name}")
+        self.filename_preview_var = tk.StringVar(value="")
+        self.max_rate_kbps = 0
         
         self.ffmpeg_path_var = tk.StringVar(value="")
         self.convert_out_dir_var = tk.StringVar(value="")
@@ -150,6 +160,8 @@ class YunTingDownloaderGUI:
         
         self.load_config()
         self.setup_ui()
+        self.bind_preview_traces()
+        self.update_filename_preview()
         self.after_init_check()
         self.schedule_metrics_refresh()
         
@@ -168,9 +180,12 @@ class YunTingDownloaderGUI:
             "broadcast_id": self.broadcast_id_var.get().strip(),
             "output_dir": self.output_dir_var.get().strip(),
             "delay": float(self.delay_var.get().strip() or 1.5),
+            "max_rate_kbps": int(self.max_rate_kbps),
             "api_key": self.api_key_var.get().strip(),
             "high_bitrate": self.high_bitrate_var.get(),
             "download_images": self.download_images_var.get(),
+            "name_filter_regex": self.name_filter_regex_var.get(),
+            "filename_template": self.filename_template_var.get(),
             "ffmpeg_path": self.ffmpeg_path_var.get().strip(),
             "convert_out_dir": self.convert_out_dir_var.get().strip(),
             "convert_format": self.convert_format_var.get().strip(),
@@ -216,9 +231,15 @@ class YunTingDownloaderGUI:
                     self.output_dir_var.set(out_dir)
                     
                     self.delay_var.set(str(config.get("delay", 1.5)))
+                    try:
+                        self.max_rate_kbps = int(config.get("max_rate_kbps", 0) or 0)
+                    except Exception:
+                        self.max_rate_kbps = 0
                     self.api_key_var.set(config.get("api_key", "f0fc4c668392f9f9a447e48584c214ee"))
                     self.high_bitrate_var.set(config.get("high_bitrate", True))
                     self.download_images_var.set(config.get("download_images", True))
+                    self.name_filter_regex_var.set(config.get("name_filter_regex", ""))
+                    self.filename_template_var.set(config.get("filename_template", r"{date}\{name}"))
                     self.ffmpeg_path_var.set(config.get("ffmpeg_path", ""))
                     
                     conv_dir = config.get("convert_out_dir", "")
@@ -242,6 +263,7 @@ class YunTingDownloaderGUI:
                 print(f"读取配置文件失败: {e}")
         else:
             self.output_dir_var.set("downloads")
+            self.max_rate_kbps = 0
 
     def save_config(self):
         config = self.get_config_dict()
@@ -318,8 +340,18 @@ class YunTingDownloaderGUI:
         ttk.Entry(dl_params_frame, textvariable=self.output_dir_var, width=33).grid(row=4, column=1, columnspan=2, sticky=tk.W, pady=2)
         ttk.Button(dl_params_frame, text="浏览...", command=self.browse_output_dir).grid(row=4, column=3, sticky=tk.W, padx=5)
 
+        ttk.Label(dl_params_frame, text="节目筛选正则:").grid(row=5, column=0, sticky=tk.W, pady=2)
+        ttk.Entry(dl_params_frame, textvariable=self.name_filter_regex_var, width=42).grid(row=5, column=1, columnspan=3, sticky=tk.W, pady=2)
+
+        ttk.Label(dl_params_frame, text="文件名模板:").grid(row=6, column=0, sticky=tk.W, pady=2)
+        ttk.Entry(dl_params_frame, textvariable=self.filename_template_var, width=42).grid(row=6, column=1, columnspan=3, sticky=tk.W, pady=2)
+
+        ttk.Label(dl_params_frame, text="预览示例:").grid(row=7, column=0, sticky=tk.W, pady=2)
+        preview_entry = ttk.Entry(dl_params_frame, textvariable=self.filename_preview_var, width=42, state="readonly")
+        preview_entry.grid(row=7, column=1, columnspan=3, sticky=tk.W, pady=2)
+
         options_frame = ttk.Frame(dl_params_frame)
-        options_frame.grid(row=5, column=0, columnspan=4, sticky=tk.W, pady=(5,0))
+        options_frame.grid(row=8, column=0, columnspan=4, sticky=tk.W, pady=(5,0))
         ttk.Checkbutton(options_frame, text="下载高码率", variable=self.high_bitrate_var).pack(side=tk.LEFT, padx=(0,15))
         ttk.Checkbutton(options_frame, text="下载封面图", variable=self.download_images_var).pack(side=tk.LEFT, padx=(0,15))
         ttk.Checkbutton(options_frame, text="下载后自动转换音频格式(需配置FFmpeg)", variable=self.auto_convert_var).pack(side=tk.LEFT)
@@ -463,6 +495,46 @@ class YunTingDownloaderGUI:
         else:
             self.mc_path_entry.config(state="normal")
             self.mc_browse_btn.config(state="normal")
+
+    def bind_preview_traces(self):
+        for var in [self.output_dir_var, self.start_date_var, self.filename_template_var, self.high_bitrate_var]:
+            var.trace_add("write", lambda *_: self.update_filename_preview())
+
+    def update_filename_preview(self):
+        try:
+            raw_date = self.start_date_var.get().strip()
+            try:
+                formatted_date = datetime.strptime(raw_date, "%y-%m-%d").strftime("%Y-%m-%d")
+            except ValueError:
+                formatted_date = datetime.now().strftime("%Y-%m-%d")
+
+            sample_name = "Morning Call 音乐叫早"
+            sample_en, sample_ch = _split_program_name(sample_name)
+
+            values = {
+                "id": "1",
+                "name": _sanitize_component_for_path(sample_name),
+                "date": _sanitize_component_for_path(formatted_date),
+                "name_ch": _sanitize_component_for_path(sample_ch),
+                "name_en": _sanitize_component_for_path(sample_en),
+                "bitrate": "High" if self.high_bitrate_var.get() else "Low",
+                "start_time": _sanitize_component_for_path("06:00:00"),
+                "end_time": _sanitize_component_for_path("07:00:00"),
+            }
+
+            template = self.filename_template_var.get().strip() or r"{date}\{name}"
+            rendered = _render_filename_template(template, values)
+            base_dir = self.output_dir_var.get().strip() or "downloads"
+            preview_path = _build_output_file_path(
+                base_downloads_dir=base_dir,
+                template_rendered=rendered,
+                download_url="https://example.com/sample.m4a",
+                fallback_date=formatted_date,
+                fallback_name=_sanitize_component_for_path(sample_name),
+            )
+            self.filename_preview_var.set(preview_path)
+        except Exception as e:
+            self.filename_preview_var.set(f"预览失败: {e}")
 
     def browse_output_dir(self):
         d = filedialog.askdirectory(initialdir=self.output_dir_var.get())
@@ -632,6 +704,9 @@ class YunTingDownloaderGUI:
             api_key = self.api_key_var.get().strip()
             is_high_bitrate = self.high_bitrate_var.get()
             is_download_imgs = self.download_images_var.get()
+            name_filter_regex = self.name_filter_regex_var.get().strip()
+            filename_template = self.filename_template_var.get().strip() or r"{date}\{name}"
+            max_rate_kbps = self.max_rate_kbps
             
             post_cb = self.auto_converter_callback if self.auto_convert_var.get() else None
             if post_cb and not self.ffmpeg_valid:
@@ -640,7 +715,7 @@ class YunTingDownloaderGUI:
                 
             if mode == "single":
                 self.check_state(is_chunk=False)
-                self._run_downloader_wrapper(start_date_str, broadcast_id, base_dir, is_high_bitrate, is_download_imgs, api_key, post_cb)
+                self._run_downloader_wrapper(start_date_str, broadcast_id, base_dir, is_high_bitrate, is_download_imgs, api_key, post_cb, name_filter_regex, filename_template, max_rate_kbps)
             else:
                 end_date_str = self.end_date_var.get().strip()
                 start_date = datetime.strptime(start_date_str, "%y-%m-%d")
@@ -649,7 +724,7 @@ class YunTingDownloaderGUI:
                 curr = start_date
                 while curr <= end_date:
                     self.check_state(is_chunk=False)
-                    self._run_downloader_wrapper(curr.strftime("%y-%m-%d"), broadcast_id, base_dir, is_high_bitrate, is_download_imgs, api_key, post_cb)
+                    self._run_downloader_wrapper(curr.strftime("%y-%m-%d"), broadcast_id, base_dir, is_high_bitrate, is_download_imgs, api_key, post_cb, name_filter_regex, filename_template, max_rate_kbps)
                     curr += timedelta(days=1)
                     if curr <= end_date:
                         for _ in range(int(delay * 10)):
@@ -677,12 +752,15 @@ class YunTingDownloaderGUI:
             self.is_downloading = False
             self.root.after(0, self.reset_buttons)
             
-    def _run_downloader_wrapper(self, d_str, b_id, b_dir, h_bit, d_img, api, post_cb):
+    def _run_downloader_wrapper(self, d_str, b_id, b_dir, h_bit, d_img, api, post_cb, name_filter_regex, filename_template, max_rate_kbps):
         download_by_date(
             date_str=d_str, broadcast_id=b_id, base_downloads_dir=b_dir, 
             high_bitrate=h_bit, download_imgs=d_img, api_key=api, 
             state_checker=self.check_state, post_process_cb=post_cb,
-            download_progress_cb=self.on_download_progress
+            download_progress_cb=self.on_download_progress,
+            name_filter_regex=name_filter_regex,
+            filename_template=filename_template,
+            max_rate_kbps=max_rate_kbps,
         )
 
     def auto_converter_callback(self, filename, filepath, date_str):
