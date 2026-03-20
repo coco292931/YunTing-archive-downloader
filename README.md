@@ -51,7 +51,7 @@ https://ytmsout.radio.cn/web/appProgram/listByDate?date=2025-12-22&broadcastId=6
             "columnId": "1432818",
             "broadcastId": "662",
             "programName": "Music Flow 音乐流",
-            "des": "",
+            "des": "潮流音乐随身听",
             "startTime": 1766332800000,
             "endTime": 1766354400000,
             "programDate": 1766332800000,
