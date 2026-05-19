@@ -18,7 +18,7 @@
 
 ## 原理
 
-点进云听官网的点播回听，不难发现每一个电台都有一个对应的broadcastId。虽然现在云听隐藏了Hit FM对应的入口，但是经过简单枚举，发现Hit FM对应的broadcastId为662
+点进云听官网的点播回听，不难发现每一个电台都有一个对应的broadcastId。虽然现在云听隐藏了Hit FM对应的入口，但是经过简单枚举，发现Hit FM对应的broadcastId为662 （后续根据吧友@黑化的磁力娃 提供的线索，ezfm的id为689，其余接口可以自行搜索查看）
 
 以最后一天的回放地址为例，
 默认网址：https://www.radio.cn/pc-portal/sanji/passProgram.html?channel_name=662&program_name=undefined&date_checked=2025/12/22&title=cate#
